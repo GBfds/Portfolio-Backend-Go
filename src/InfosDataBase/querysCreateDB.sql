@@ -1,10 +1,3 @@
---Types
-
-CREATE TYPE pedido AS(
-  id_produto UUID,
-  nome_produto TEXT,
-  quantidade INT
-);
 
 --Tables
 CREATE TABLE admin(
@@ -48,10 +41,5 @@ CREATE TABLE produto(
   
   CONSTRAINT id_produto_pkey PRIMARY KEY (id)
 );
-
-
-
-
-
 
 
