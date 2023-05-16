@@ -3,7 +3,6 @@ package controllers
 import (
 	"Backend-Go/src/initializers"
 	"Backend-Go/src/models"
-	"context"
 	"fmt"
 	"net/http"
 
@@ -21,21 +20,14 @@ func AddEndereco(c *gin.Context) {
 		return
 	}
 
-	idCliente, exists := c.Get("idCliente")
-	if exists != true {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "usuario não logado",
-		})
-
-		return
-	}
+	idCliente := c.GetString("idCliente")
+	fmt.Println(idCliente)
 	// adicionado endereco
-	db := initializers.ConnectToDB()
-	defer db.Close(context.Background())
 
-	_, err := db.Exec(context.Background(), "INSERT INTO endereco(id_cliente, numero, rua, bairro, cidade)VALUES ($1, $2, $3, $4, $5)", idCliente, body.Numero, body.Rua, body.Bairro, body.Cidade)
+	endereco := models.Endereco{Id_cliente: string(idCliente), Numero: body.Numero, Rua: body.Rua, Bairro: body.Bairro, Cidade: body.Cidade}
 
-	if err != nil {
+	result := initializers.DB.Create(&endereco)
+	if result.Error != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "erro ao adicionar endereço",
 		})
@@ -62,33 +54,19 @@ func ReadEnderecos(c *gin.Context) {
 	}
 
 	// buscar endereços no DB
-	db := initializers.ConnectToDB()
-	defer db.Close(context.Background())
-
-	rows, err := db.Query(context.Background(), "SELECT * FROM endereco WHERE id_cliente=$1", idCliente)
-	if err != nil {
+	var enderecos []models.Endereco
+	results := initializers.DB.Find(&enderecos, "id_cliente = ?", idCliente)
+	if results.Error != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "erro ao buscar no DB",
+			"message": "erro ao buscar endereços",
 		})
 
 		return
 	}
 
-	var enderecos []models.Endereco
-
-	for rows.Next() {
-		var end models.Endereco
-		err := rows.Scan(&end.Id, &end.Id_cliente, &end.Numero, &end.Rua, &end.Bairro, &end.Cidade)
-		if err != nil {
-			continue
-		}
-		fmt.Println(end)
-		enderecos = append(enderecos, end)
-	}
-
 	// response
 
-	if enderecos == nil {
+	if len(enderecos) < 0 {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "nenhum endereço cadastrado",
 		})
@@ -102,34 +80,27 @@ func DeleleEndereco(c *gin.Context) {
 	idEndereco := c.Param("idEndereco")
 
 	// conferir se o endereço existe
-	db := initializers.ConnectToDB()
-	defer db.Close(context.Background())
-
-	var exists bool
-	row := db.QueryRow(context.Background(), "SELECT EXISTS(SELECT 1 FROM endereco WHERE id=$1)", idEndereco)
-	row.Scan(&exists)
-
-	if exists != true {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message": "endereço não existe",
-		})
-
-		return
-	}
-
-	// delete endereço do DB
-	fmt.Print(idEndereco)
-	_, err := db.Exec(context.Background(), "DELETE FROM endereco WHERE id=$1", idEndereco)
-	if err != nil {
+	var endereco models.Endereco
+	result := initializers.DB.First(&endereco, "id = ?", idEndereco)
+	if result.Error != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "erro ao deletar endereço",
+			"message": "erro ao buscar endereço",
 		})
 
 		return
 	}
 
-	// response
-	c.JSON(http.StatusAccepted, gin.H{
-		"message": "endereço deletado",
-	})
+	if endereco.ID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "endereco não existe",
+		})
+	} else {
+		// delete endereço do DB
+		initializers.DB.Where("id = ?", endereco.ID).Delete(&models.Endereco{})
+
+		// response
+		c.JSON(http.StatusAccepted, gin.H{
+			"message": "endereço deletado",
+		})
+	}
 }

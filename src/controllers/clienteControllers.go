@@ -3,7 +3,6 @@ package controllers
 import (
 	"Backend-Go/src/initializers"
 	"Backend-Go/src/models"
-	"context"
 	"net/http"
 	"os"
 	"time"
@@ -34,15 +33,12 @@ func SignUp(c *gin.Context) {
 	}
 
 	// criando cliente
+	cliente := models.Cliente{Nome: body.Nome, Email: body.Email, Senha: string(hash), Telefone: body.Telefone}
+	result := initializers.DB.Create(&cliente)
 
-	db := initializers.ConnectToDB()
-	defer db.Close(context.Background())
-
-	_, errorCreate := db.Exec(context.Background(), "INSERT INTO cliente(nome, email, senha, telefone) VALUES ($1, $2, $3, $4)", body.Nome, body.Email, string(hash), body.Telefone)
-
-	if errorCreate != nil {
+	if result.Error != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "falha ao criar usuario",
+			"message": "erro ao criar usuario",
 		})
 
 		return
@@ -66,23 +62,19 @@ func Login(c *gin.Context) {
 	}
 
 	// confirir no DB
-	db := initializers.ConnectToDB()
-	defer db.Close(context.Background())
+	var cliente models.Cliente
+	initializers.DB.Find(&cliente, "email = ?", body.Email)
 
-	row := db.QueryRow(context.Background(), "SELECT * FROM cliente WHERE email = $1", body.Email)
-
-	var clt models.Cliente
-	errorScan := row.Scan(&clt.Id, &clt.Nome, &clt.Email, &clt.Senha, &clt.Telefone)
-	if errorScan != nil {
+	if cliente.ID == "0" {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "falha ao receber dados do DB",
+			"message": "email/senha invalido",
 		})
 
 		return
 	}
 
 	//comparar hash
-	err := bcrypt.CompareHashAndPassword([]byte(clt.Senha), []byte(body.Senha))
+	err := bcrypt.CompareHashAndPassword([]byte(cliente.Senha), []byte(body.Senha))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "email/senha incorreto(a)",
@@ -93,7 +85,7 @@ func Login(c *gin.Context) {
 
 	// criar tonken
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": clt.Id,
+		"sub": cliente.ID,
 		"exp": time.Now().Add(time.Hour * 24 * 30).Unix(),
 	})
 

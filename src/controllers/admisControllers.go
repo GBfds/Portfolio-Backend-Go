@@ -3,7 +3,6 @@ package controllers
 import (
 	"Backend-Go/src/initializers"
 	"Backend-Go/src/models"
-	"context"
 	"net/http"
 	"os"
 	"time"
@@ -32,19 +31,16 @@ func SignUpAdmin(c *gin.Context) {
 	}
 
 	// criando cliente
-	db := initializers.ConnectToDB()
-	defer db.Close(context.Background())
+	admin := models.Admin{Nome: body.Nome, Email: body.Email, Senha: string(hash), Cargo: body.Cargo}
+	result := initializers.DB.Create(&admin)
 
-	_, errorCreate := db.Exec(context.Background(), "INSERT INTO admin(nome, email, senha, cargo) VALUES ($1, $2, $3, $4)", body.Nome, body.Email, string(hash), body.Cargo)
-
-	if errorCreate != nil {
+	if result.Error != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"message": "falha ao criar usuario",
+			"message": "erro ao criar usuario",
 		})
 
 		return
 	}
-
 	//response
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "admin criado com sucesso",
@@ -62,23 +58,11 @@ func LoginAdmin(c *gin.Context) {
 		return
 	}
 	// busca no DB
-	db := initializers.ConnectToDB()
-	defer db.Close(context.Background())
-
-	row := db.QueryRow(context.Background(), "SELECT * FROM admin WHERE email = $1", body.Email)
-
-	var clt models.Admin
-	errorScan := row.Scan(&clt.Id, &clt.Nome, &clt.Email, &clt.Senha, &clt.Cargo)
-	if errorScan != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "falha ao receber dados do DB",
-		})
-
-		return
-	}
+	var admin models.Admin
+	initializers.DB.Find(&admin, "email = ?", body.Email)
 
 	//comparar hash
-	err := bcrypt.CompareHashAndPassword([]byte(clt.Senha), []byte(body.Senha))
+	err := bcrypt.CompareHashAndPassword([]byte(admin.Senha), []byte(body.Senha))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "email/senha incorreto(a)",
@@ -89,7 +73,7 @@ func LoginAdmin(c *gin.Context) {
 
 	// criar tonken
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": clt.Id,
+		"sub": admin.ID,
 		"exp": time.Now().Add(time.Hour * 24 * 30).Unix(),
 	})
 

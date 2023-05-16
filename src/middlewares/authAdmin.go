@@ -3,7 +3,6 @@ package middlewares
 import (
 	"Backend-Go/src/initializers"
 	"Backend-Go/src/models"
-	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -36,18 +35,15 @@ func AuthAdmin(c *gin.Context) {
 		}
 
 		//
-		var adm models.Admin
-		row := initializers.ConnectToDB().QueryRow(context.Background(), "SELECT * FROM admin WHERE id=$1", claims["sub"])
-		if row.Scan(&adm.Id, &adm.Nome, &adm.Email, &adm.Senha, &adm.Cargo) != nil {
-			c.AbortWithError(http.StatusUnauthorized, err)
-		}
+		var adim models.Admin
+		result := initializers.DB.First(&adim, "id = ?", claims["sub"])
 
-		if adm.Id == "" {
+		if result.Error != nil {
 			c.AbortWithError(http.StatusUnauthorized, err)
 		}
 
 		//atack req
-		c.Set("admin", adm)
+		c.Set("admin", adim.ID)
 		//continue
 		c.Next()
 

@@ -3,7 +3,6 @@ package middlewares
 import (
 	"Backend-Go/src/initializers"
 	"Backend-Go/src/models"
-	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -36,18 +35,15 @@ func AuthCliente(c *gin.Context) {
 		}
 
 		//
-		var clt models.Cliente
-		row := initializers.ConnectToDB().QueryRow(context.Background(), "SELECT * FROM cliente WHERE id=$1", claims["sub"])
-		if row.Scan(&clt.Id, &clt.Nome, &clt.Email, &clt.Senha, &clt.Telefone) != nil {
-			c.AbortWithError(http.StatusUnauthorized, err)
-		}
+		var cliente models.Cliente
+		result := initializers.DB.First(&cliente, "id = ?", claims["sub"])
 
-		if clt.Id == "" {
+		if result.Error != nil {
 			c.AbortWithError(http.StatusUnauthorized, err)
 		}
 
 		//atack req
-		c.Set("idCliente", clt.Id)
+		c.Set("idCliente", cliente.ID)
 		//continue
 		c.Next()
 

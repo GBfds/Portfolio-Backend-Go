@@ -1,28 +1,20 @@
 package initializers
 
 import (
-	"context"
-	"fmt"
-	"log"
 	"os"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/joho/godotenv"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
-var DB *pgx.Conn = ConnectToDB()
+var DB *gorm.DB
 
-func ConnectToDB() *pgx.Conn {
-	err := godotenv.Load()
+func ConnectToDB() {
+	var err error
+	// postgres://furgbznv:4zNTgUsSEeX0usWhh8BLE_6S6kmhJB0k@tuffi.db.elephantsql.com/furgbznv
+	DB, err = gorm.Open(postgres.Open(os.Getenv("DATABASE_URL")), &gorm.Config{})
+
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		panic("faldo conectar o DB")
 	}
-
-	DB, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
-		os.Exit(1)
-	}
-
-	return DB
 }
